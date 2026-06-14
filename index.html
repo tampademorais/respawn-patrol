@@ -1,17 +1,79 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#4c1d95" />
-    <meta name="description" content="Father Hood - A gamified checklist app for new fathers. Track your parenting missions, earn XP, and level up!" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Father Hood - Gamified Dad Checklist</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Respawn Patrol</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen active">
+        <div class="login-container">
+            <div class="logo">
+                <h1>⚔️ Respawn Patrol</h1>
+                <p class="subtitle">Guild Spawn Control System</p>
+            </div>
+            <div class="login-box">
+                <label for="access-code">Digite seu código de acesso</label>
+                <input type="password" id="access-code" placeholder="••••••" maxlength="20">
+                <button id="login-btn" class="btn btn-primary">Entrar</button>
+                <p id="login-error" class="error-message"></p>
+            </div>
+            <div class="login-footer">
+                <p>Sistema de controle de respawns da guild</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard-screen" class="screen">
+        <header class="dashboard-header">
+            <div class="header-left">
+                <h1>⚔️ Respawn Patrol</h1>
+            </div>
+            <div class="header-right">
+                <span id="player-name" class="player-info"></span>
+                <button id="change-nick-btn" class="btn btn-nick" title="Alterar nick">✏️</button>
+                <button id="logout-btn" class="btn btn-secondary">Sair</button>
+            </div>
+        </header>
+
+        <main class="dashboard-content">
+            <!-- Respawn List Section -->
+            <section class="respawns-section">
+                <h2 class="section-title">📍 Lista de Respawns</h2>
+                <div id="respawns-grid" class="respawns-grid">
+                    <!-- Respawn cards will be inserted here by JavaScript -->
+                </div>
+            </section>
+
+            <!-- Ranking Section -->
+            <aside class="ranking-section">
+                <h2 class="section-title">🏆 Ranking</h2>
+                <div id="ranking-list" class="ranking-list">
+                    <!-- Ranking items will be inserted here by JavaScript -->
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Nick Change Modal -->
+    <div id="nick-modal-overlay" class="nick-modal-overlay"></div>
+    <div id="nick-modal" class="nick-modal">
+        <h3>✏️ Alterar Nick</h3>
+        <input type="text" id="new-nick" placeholder="Digite seu novo nick" maxlength="50">
+        <div class="nick-modal-buttons">
+            <button id="cancel-nick-btn" class="btn btn-secondary">Cancelar</button>
+            <button id="save-nick-btn" class="btn btn-primary">Salvar</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="script.js"></script>
+</body>
 </html>
