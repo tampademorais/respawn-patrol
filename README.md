@@ -203,4 +203,3 @@ Acesse `http://localhost:8000` (ou porta indicada)
 ---
 
 **Desenvolvido para guilds de Tibia** ⚔️
-Respawn Patrol - Aurera
