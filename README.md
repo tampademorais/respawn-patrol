@@ -1,205 +1,123 @@
-# ⚔️ Respawn Patrol
+# ⚔️ Respawn Patrol - Guild Spawn Control System
 
-Sistema de controle de respawns para guilds de Tibia. Uma aplicação web estática que conecta com Supabase para gerenciar verificações de hunts, ranking de jogadores e sistema de acesso por código.
+Sistema de controle de respawns para guildas de Tibia, com verificação de status e sistema de pontuação.
 
-## 🎮 Funcionalidades
+## 🎯 Funcionalidades
 
-- **Fila Inteligente de Respawns**: Ordenação automática baseada no status (pronto, nunca verificado, em cooldown)
-- **Sistema de Cooldown**: Cada hunt tem seu próprio tempo de respawn (6h, 8h, 12h, 24h)
-- **Check-in Rápido**: Botão "VERIFIQUEI AGORA" para registrar verificações
-- **Ranking em Tempo Real**: Pontuação automática baseada em prioridades
-- **Acesso por Código**: Sistema seguro sem necessidade de login/senha
-- **Alterar Nick**: Jogadores podem atualizar seu apelido
-- **Status Visual**: Indicadores coloridos para tempo restante (🟢🟡🟠🔴)
+### Verificação de Respawns
+- **5 tipos de status** para verificação:
+  - 🔵 **Sem PT** (+1 ponto) - Respawn vazio, sem PT formada
+  - 🟡 **Com PT** (+2 pontos) - PT formada aguardando membros
+  - 🟣 **Acabou PT** (+2 pontos) - PT encerrou e saiu do local
+  - 🟢 **Matamos** (+8 pontos) - Nossa PT assumiu o respawn
+  - 🔴 **Fraguei** (+12 pontos) - Nossa PT morreu na disputa
 
-## 🚀 Deploy no Vercel
+### Sistema de Upload de Prints
+- **Drag & Drop** - Arraste imagens para a área de upload
+- **Ctrl+V** - Cole prints diretamente da área de transferência
+- **Clique** - Selecione arquivos do computador
+- Formatos suportados: PNG, JPG, JPEG, WEBP (máx. 10MB)
 
-Este projeto é **100% estático** e está pronto para deploy imediato no Vercel.
+### Ranking
+- Pontuação baseada no tipo de verificação
+- Ranking em tempo real de todos os jogadores
+- Histórico completo de verificações
 
-### Pré-requisitos
+### Painel Administrativo
+- Visualização de todas as verificações
+- Filtros por jogador, hunt, status e período
+- Exclusão de verificações incorretas
+- Visualização de prints em tela cheia
 
-1. **GitHub Account** - para versionamento
-2. **Vercel Account** - para deploy (gratuito)
-3. **Supabase Project** - banco de dados (gratuito)
+## 🚀 Como Usar
 
-### Passo a Passo
+1. **Login**: Digite seu código de acesso fornecido pela guilda
+2. **Verificar**: Clique em "VERIFIQUEI AGORA" em um respawn disponível
+3. **Selecionar Status**: Escolha qual foi o resultado da verificação
+4. **Enviar Print** (se necessário): 
+   - Arraste uma imagem
+   - Ou cole com Ctrl+V
+   - Ou clique para selecionar
+5. **Confirmar**: Clique em "Confirmar Verificação"
 
-#### 1. Preparar Repositório GitHub
+## 📋 Requisitos
 
-```bash
-# Navegue até a pasta do projeto
-cd father-hood
+- Navegador moderno (Chrome, Firefox, Edge, Safari)
+- Conexão com a internet
+- Código de acesso válido da guilda
 
-# Inicialize o repositório Git (se ainda não tiver)
-git init
+## 🗄️ Banco de Dados
 
-# Adicione todos os arquivos
-git add .
+O sistema utiliza Supabase como backend. As tabelas principais são:
 
-# Crie o primeiro commit
-git commit -m "Initial commit: Respawn Patrol complete system"
+- `hunts` - Lista de respawns com cooldown
+- `hunt_checks` - Histórico de verificações com status e prints
+- `access_codes` - Códigos de acesso dos jogadores
 
-# Crie uma branch main (opcional, mas recomendado)
-git branch -M main
+### Migration Necessária
 
-# Adicione o repositório remoto (substitua SEU_USUARIO pelo seu usuário GitHub)
-git remote add origin https://github.com/SEU_USUARIO/respawn-patrol.git
-
-# Faça o push
-git push -u origin main
-```
-
-#### 2. Configurar Supabase
-
-1. Acesse [supabase.com](https://supabase.com) e crie um novo projeto
-2. Após criar, vá em **Settings > API** e copie:
-   - **Project URL**
-   - **anon/public key**
-3. Vá em **SQL Editor** e cole o conteúdo do arquivo `supabase/migrations/20260614013000_respawn_patrol_complete.sql`
-4. Clique em **Run** para executar o SQL
-
-#### 3. Atualizar Credenciais no Código
-
-Edite o arquivo `script.js` e substitua as credenciais do Supabase:
-
-```javascript
-// Linha 18-19 do script.js
-const SUPABASE_URL = 'https://SEU_PROJETO.supabase.co';
-const SUPABASE_ANON_KEY = 'SUA_CHAVE_ANON_AQUI';
-```
-
-#### 4. Deploy no Vercel
-
-1. Acesse [vercel.com](https://vercel.com) e faça login
-2. Clique em **"Add New Project"**
-3. Importe o repositório GitHub que você criou
-4. **Importante**: Nas configurações de build, deixe como está:
-   - **Build Command**: (vazio)
-   - **Output Directory**: (vazio)
-   - **Install Command**: (vazio)
-5. Clique em **"Deploy"**
-
-#### 5. Pronto! 🎉
-
-Seu projeto estará disponível em `https://respawn-patrol.vercel.app` (ou domínio personalizado)
+Execute a migration `20260614020000_add_verification_status_and_images.sql` para adicionar as colunas `status` e `image_url` na tabela `hunt_checks`.
 
 ## 📁 Estrutura do Projeto
 
 ```
-father-hood/
-├── index.html                    # Página principal
-├── script.js                     # Lógica da aplicação
-├── style.css                     # Estilos
-├── vercel.json                   # Configuração Vercel
-├── .gitignore                    # Arquivos ignorados
-├── README.md                     # Este arquivo
-├── package.json                  # (apenas para Father Hood React)
-├── vite.config.js                # (apenas para Father Hood React)
+├── index.html          # Página principal (dashboard)
+├── admin.html          # Painel administrativo
+├── script.js           # Lógica do frontend
+├── style.css           # Estilos (tema MMORPG dark)
 ├── supabase/
-│   └── migrations/
-│       └── 20260614013000_respawn_patrol_complete.sql
-└── src/                          # (apenas para Father Hood React)
+│   └── migrations/     # Migrations do banco de dados
+└── README.md           # Este arquivo
 ```
 
-## 🗄️ Banco de Dados
+## 🎨 Tema Visual
 
-O sistema utiliza as seguintes tabelas no Supabase:
+O sistema utiliza um tema dark MMORPG com:
+- Cores inspiradas em interfaces de jogos
+- Animações suaves
+- Cards com efeitos de hover
+- Status com cores semânticas
 
-### `hunts`
-- `id` - Identificador único
-- `name` - Nome do respawn
-- `priority` - Pontos/prioridade
-- `image_url` - URL da imagem (opcional)
-- `last_check` - Data da última verificação
-- `updated_by` - Último jogador que atualizou
-- `updated_at` - Data de atualização
-- `cooldown_hours` - Horas de cooldown (padrão: 24)
+## 🔧 Configuração
 
-### `hunt_checks`
-- `id` - Identificador único
-- `hunt_id` - Referência à hunt
-- `player_name` - Nome do jogador
-- `checked_at` - Data/hora do check
-- `points` - Pontos ganhos
+### Supabase
 
-### `access_codes`
-- `id` - Identificador único
-- `code` - Código de acesso
-- `player_name` - Nome do jogador
-- `is_active` - Se o código está ativo
-- `created_at` / `updated_at` - Datas
+1. Crie um projeto no [Supabase](https://supabase.com)
+2. Execute as migrations na ordem:
+   - `20260614013000_respawn_patrol_complete.sql`
+   - `20260614020000_add_verification_status_and_images.sql`
+3. Crie um bucket de storage chamado `verification-images` (público)
+4. Atualize as credenciais no `script.js` e `admin.html`
 
-## 🔒 Segurança
+### Storage Bucket
 
-- **RLS (Row Level Security)**: Habilitado em todas as tabelas
-- **Políticas**: Apenas operações necessárias para `anon`
-- **Códigos de Acesso**: Validados no banco de dados
-- **Sem senhas**: Sistema baseado em códigos únicos
+No painel do Supabase:
+1. Vá em Storage
+2. Crie um novo bucket: `verification-images`
+3. Defina como público
+4. Adicione políticas de acesso adequadas
 
-## 🎨 Personalização
+## 📊 Pontos por Verificação
 
-### Adicionar Imagens às Hunts
+| Status | Pontos | Print Obrigatório |
+|--------|--------|-------------------|
+| Sem PT | +1 | Não |
+| Com PT | +2 | Sim |
+| Acabou PT | +2 | Sim |
+| Matamos | +8 | Sim |
+| Fraguei | +12 | Sim |
 
-Atualize o campo `image_url` na tabela `hunts` via Supabase Dashboard:
+## 🛡️ Segurança
 
-```sql
-UPDATE public.hunts 
-SET image_url = 'https://exemplo.com/imagem.jpg' 
-WHERE name = 'Livraria Gelo';
-```
+- Row Level Security (RLS) habilitado em todas as tabelas
+- Códigos de acesso para autenticação
+- Validação de cooldown por hunt
+- Upload de imagens com validação de tipo e tamanho
 
-Ou use Supabase Storage:
-1. Crie um bucket chamado `hunt-images`
-2. Faça upload das imagens
-3. Use a URL pública no campo `image_url`
+## 📝 Licença
 
-### Adicionar Novos Códigos de Acesso
-
-```sql
-INSERT INTO public.access_codes (code, player_name) 
-VALUES ('NOVO_CODIGO', 'Nome do Jogador');
-```
-
-### Alterar Cooldown das Hunts
-
-```sql
-UPDATE public.hunts 
-SET cooldown_hours = 6 
-WHERE name LIKE 'Livraria%';
-```
-
-## 🛠️ Desenvolvimento Local
-
-Para testar localmente:
-
-```bash
-# Opção 1: Servidor simples (Python)
-python -m http.server 8000
-
-# Opção 2: Extensão "Live Server" do VS Code
-# Clique com botão direito em index.html > "Open with Live Server"
-
-# Opção 3: Node.js (npx)
-npx serve .
-```
-
-Acesse `http://localhost:8000` (ou porta indicada)
-
-## ⚠️ Notas Importantes
-
-1. **Credenciais do Supabase**: Estão hardcoded no `script.js` por ser um projeto estático. As chaves `anon` são seguras para exposição pública (RLS protege os dados).
-
-2. **Imagens**: Se não houver `image_url`, o card mostra um gradiente escuro limpo.
-
-3. **React/Father Hood**: A pasta `src/` contém um projeto React separado (Father Hood) que não é usado pelo Respawn Patrol. Pode ser removido se desejar.
-
-4. **Vercel.json**: Configurado para servir como site estático sem build.
-
-## 📞 Suporte
-
-- **Supabase Docs**: [supabase.com/docs](https://supabase.com/docs)
-- **Vercel Docs**: [vercel.com/docs](https://vercel.com/docs)
+Uso interno para guildas de Tibia.
 
 ---
 
-**Desenvolvido para guilds de Tibia** ⚔️
+Desenvolvido para a comunidade de Tibia �️

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Respawn Patrol</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .admin-screen {
+            display: block;
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--color-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .admin-header h1 {
+            font-family: var(--font-heading);
+            font-size: 1.3rem;
+            color: var(--color-primary);
+            letter-spacing: 1px;
+        }
+        
+        .admin-content {
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .admin-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--border-radius-lg);
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-family: var(--font-heading);
+            font-size: 2rem;
+            color: var(--color-accent);
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--color-text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .pagination button {
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--border-radius);
+            color: var(--color-text-bright);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .pagination button:hover:not(:disabled) {
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+        
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .pagination-info {
+            color: var(--color-text-dim);
+            font-size: 0.85rem;
+        }
+        
+        /* Image Modal */
+        .image-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            cursor: pointer;
+        }
+        
+        .image-modal-overlay.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .image-modal-overlay img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: var(--border-radius);
+        }
+        
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--color-border);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Admin Screen -->
+    <div id="admin-screen" class="admin-screen">
+        <header class="admin-header">
+            <div class="header-left">
+                <h1>⚔️ Admin - Respawn Patrol</h1>
+            </div>
+            <div class="header-right">
+                <a href="index.html" class="btn btn-secondary" style="text-decoration: none;">Voltar ao Dashboard</a>
+            </div>
+        </header>
+
+        <main class="admin-content">
+            <!-- Stats -->
+            <div class="admin-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-checks">0</div>
+                    <div class="stat-label">Total Verificações</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-players">0</div>
+                    <div class="stat-label">Jogadores</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-points">0</div>
+                    <div class="stat-label">Pontos Totais</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="with-images">0</div>
+                    <div class="stat-label">Com Print</div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="admin-filters">
+                <div class="admin-filter-group">
+                    <label>Jogador</label>
+                    <input type="text" id="filter-player" placeholder="Nome do jogador">
+                </div>
+                <div class="admin-filter-group">
+                    <label>Hunt</label>
+                    <select id="filter-hunt">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+                <div class="admin-filter-group">
+                    <label>Status</label>
+                    <select id="filter-status">
+                        <option value="">Todos</option>
+                        <option value="SEM_PT">Sem PT</option>
+                        <option value="COM_PT">Com PT</option>
+                        <option value="ACABOU_PT">Acabou PT</option>
+                        <option value="MATAMOS">Matamos</option>
+                        <option value="FRAGUEI">Fraguei</option>
+                    </select>
+                </div>
+                <div class="admin-filter-group">
+                    <label>De</label>
+                    <input type="date" id="filter-from">
+                </div>
+                <div class="admin-filter-group">
+                    <label>Até</label>
+                    <input type="date" id="filter-to">
+                </div>
+                <div class="admin-filter-group" style="display: flex; align-items: flex-end;">
+                    <button class="btn btn-primary" onclick="applyFilters()" style="padding: 8px 20px;">Filtrar</button>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container">
+                <div id="table-loading" class="loading-spinner" style="display: none;">
+                    <div class="spinner"></div>
+                </div>
+                <table class="verification-table" id="verification-table">
+                    <thead>
+                        <tr>
+                            <th>Print</th>
+                            <th>Data</th>
+                            <th>Jogador</th>
+                            <th>Hunt</th>
+                            <th>Status</th>
+                            <th>Pontos</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="verification-tbody">
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <button onclick="prevPage()" id="prev-btn">← Anterior</button>
+                <span class="pagination-info" id="page-info">Página 1</span>
+                <button onclick="nextPage()" id="next-btn">Próxima →</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Image Modal -->
+    <div class="image-modal-overlay" id="image-modal" onclick="closeImageModal()">
+        <img id="image-modal-img" src="" alt="Print">
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // ============================================
+        // SUPABASE CONFIGURATION
+        // ============================================
+        const SUPABASE_URL = 'https://czdyassmchxjtwpynsow.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6ZHlhc3NtY2h4anR3cHluc293Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzOTA2NjUsImV4cCI6MjA5Njk2NjY2NX0.dbOBvIZG3iTJdQ0AsBlovX5RAG8GNASmMB3dyJSA34k';
+        
+        let supabaseClient = null;
+        let allChecks = [];
+        let filteredChecks = [];
+        let hunts = [];
+        let currentPage = 1;
+        const pageSize = 20;
+
+        // Status configuration
+        const STATUS_CONFIG = {
+            'SEM_PT': { label: 'Sem PT', class: 'sem-pt', icon: '🔵', points: 1 },
+            'COM_PT': { label: 'Com PT', class: 'com-pt', icon: '🟡', points: 2 },
+            'ACABOU_PT': { label: 'Acabou PT', class: 'acabou-pt', icon: '🟣', points: 2 },
+            'MATAMOS': { label: 'Matamos', class: 'matamos', icon: '🟢', points: 8 },
+            'FRAGUEI': { label: 'Fraguei', class: 'fraguei', icon: '🔴', points: 12 }
+        };
+
+        function init() {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            loadData();
+        }
+
+        async function loadData() {
+            document.getElementById('table-loading').style.display = 'flex';
+            
+            // Load hunts for filter dropdown
+            const { data: huntsData } = await supabaseClient.from('hunts').select('id, name').order('name');
+            hunts = huntsData || [];
+            
+            const huntSelect = document.getElementById('filter-hunt');
+            hunts.forEach(h => {
+                const option = document.createElement('option');
+                option.value = h.id;
+                option.textContent = h.name;
+                huntSelect.appendChild(option);
+            });
+
+            // Load all checks
+            const { data: checksData } = await supabaseClient
+                .from('hunt_checks')
+                .select('*, hunts(name)')
+                .order('checked_at', { ascending: false });
+            
+            allChecks = checksData || [];
+            filteredChecks = [...allChecks];
+            
+            updateStats();
+            renderTable();
+            
+            document.getElementById('table-loading').style.display = 'none';
+        }
+
+        function updateStats() {
+            const totalChecks = allChecks.length;
+            const players = new Set(allChecks.map(c => c.player_name));
+            const totalPoints = allChecks.reduce((sum, c) => sum + (c.points || 0), 0);
+            const withImages = allChecks.filter(c => c.image_url).length;
+
+            document.getElementById('total-checks').textContent = totalChecks;
+            document.getElementById('total-players').textContent = players.size;
+            document.getElementById('total-points').textContent = totalPoints;
+            document.getElementById('with-images').textContent = withImages;
+        }
+
+        function applyFilters() {
+            const playerFilter = document.getElementById('filter-player').value.toLowerCase();
+            const huntFilter = document.getElementById('filter-hunt').value;
+            const statusFilter = document.getElementById('filter-status').value;
+            const fromFilter = document.getElementById('filter-from').value;
+            const toFilter = document.getElementById('filter-to').value;
+
+            filteredChecks = allChecks.filter(check => {
+                if (playerFilter && !check.player_name.toLowerCase().includes(playerFilter)) return false;
+                if (huntFilter && check.hunt_id != huntFilter) return false;
+                if (statusFilter && check.status !== statusFilter) return false;
+                
+                if (fromFilter) {
+                    const checkDate = new Date(check.checked_at);
+                    const fromDate = new Date(fromFilter);
+                    if (checkDate < fromDate) return false;
+                }
+                
+                if (toFilter) {
+                    const checkDate = new Date(check.checked_at);
+                    const toDate = new Date(toFilter);
+                    toDate.setHours(23, 59, 59);
+                    if (checkDate > toDate) return false;
+                }
+                
+                return true;
+            });
+
+            currentPage = 1;
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('verification-tbody');
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            const pageData = filteredChecks.slice(start, end);
+
+            tbody.innerHTML = '';
+
+            if (pageData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--color-text-dim);">Nenhuma verificação encontrada.</td></tr>';
+                updatePagination();
+                return;
+            }
+
+            pageData.forEach(check => {
+                const statusConfig = STATUS_CONFIG[check.status] || STATUS_CONFIG['SEM_PT'];
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>
+                        ${check.image_url 
+                            ? `<img src="${check.image_url}" class="image-thumb" onclick="openImageModal('${check.image_url}')" alt="Print" onerror="this.outerHTML='<div class=\\'no-image\\'>📷</div>'">`
+                            : '<div class="no-image" title="Sem print">📷</div>'
+                        }
+                    </td>
+                    <td>${formatDateTime(check.checked_at)}</td>
+                    <td>${check.player_name}</td>
+                    <td>${check.hunts?.name || 'Unknown'}</td>
+                    <td>
+                        <span class="status-badge ${statusConfig.class}">
+                            ${statusConfig.icon} ${statusConfig.label}
+                        </span>
+                    </td>
+                    <td style="color: var(--color-accent); font-weight: 600;">+${check.points || statusConfig.points}</td>
+                    <td>
+                        <button class="btn-delete-verification" onclick="deleteCheck(${check.id})" title="Excluir">
+                            🗑️ Excluir
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+
+            updatePagination();
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(filteredChecks.length / pageSize);
+            document.getElementById('page-info').textContent = `Página ${currentPage} de ${totalPages || 1}`;
+            document.getElementById('prev-btn').disabled = currentPage <= 1;
+            document.getElementById('next-btn').disabled = currentPage >= totalPages;
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable();
+            }
+        }
+
+        function nextPage() {
+            const totalPages = Math.ceil(filteredChecks.length / pageSize);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderTable();
+            }
+        }
+
+        function openImageModal(url) {
+            const modal = document.getElementById('image-modal');
+            const img = document.getElementById('image-modal-img');
+            img.src = url;
+            modal.classList.add('active');
+        }
+
+        function closeImageModal() {
+            document.getElementById('image-modal').classList.remove('active');
+        }
+
+        async function deleteCheck(checkId) {
+            if (!confirm('Tem certeza que deseja excluir esta verificação?')) return;
+
+            const { error } = await supabaseClient.from('hunt_checks').delete().eq('id', checkId);
+            
+            if (error) {
+                showToast('Erro ao excluir: ' + error.message, 'error');
+            } else {
+                showToast('Verificação excluída.', 'success');
+                // Reload data
+                allChecks = allChecks.filter(c => c.id !== checkId);
+                filteredChecks = filteredChecks.filter(c => c.id !== checkId);
+                renderTable();
+                updateStats();
+            }
+        }
+
+        function formatDateTime(isoString) {
+            const date = new Date(isoString);
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            return `${day}/${month} ${hours}:${minutes}`;
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

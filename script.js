@@ -49,7 +49,84 @@ let state = {
     currentPlayer: null,
     accessCode: null,
     hunts: [],
-    ranking: []
+    ranking: [],
+    verificationHistory: []
+};
+
+// ============================================
+// VERIFICATION STATUS CONFIGURATION
+// ============================================
+
+const VERIFICATION_STATUS = {
+    SEM_PT: {
+        id: 'SEM_PT',
+        label: 'Sem PT',
+        description: 'O respawn está vazio, não existe PT formada.',
+        points: 1,
+        color: 'blue',
+        icon: '🔵',
+        requiresImage: false,
+        gradient: 'from-blue-600 to-blue-800',
+        bgColor: 'bg-blue-900/30',
+        borderColor: 'border-blue-500/50'
+    },
+    COM_PT: {
+        id: 'COM_PT',
+        label: 'Com PT',
+        description: 'Existe uma PT formada aguardando completar.',
+        points: 2,
+        color: 'yellow',
+        icon: '🟡',
+        requiresImage: true,
+        gradient: 'from-yellow-600 to-yellow-800',
+        bgColor: 'bg-yellow-900/30',
+        borderColor: 'border-yellow-500/50'
+    },
+    ACABOU_PT: {
+        id: 'ACABOU_PT',
+        label: 'Acabou PT',
+        description: 'A PT encerrou a hunt e saiu do local.',
+        points: 2,
+        color: 'purple',
+        icon: '🟣',
+        requiresImage: true,
+        gradient: 'from-purple-600 to-purple-800',
+        bgColor: 'bg-purple-900/30',
+        borderColor: 'border-purple-500/50'
+    },
+    MATAMOS: {
+        id: 'MATAMOS',
+        label: 'Matamos',
+        description: 'Nossa PT matou a PT inimiga e assumiu o respawn.',
+        points: 8,
+        color: 'green',
+        icon: '🟢',
+        requiresImage: true,
+        gradient: 'from-green-600 to-green-800',
+        bgColor: 'bg-green-900/30',
+        borderColor: 'border-green-500/50'
+    },
+    FRAGUEI: {
+        id: 'FRAGUEI',
+        label: 'Fraguei',
+        description: 'A PT morreu durante a disputa.',
+        points: 12,
+        color: 'red',
+        icon: '🔴',
+        requiresImage: true,
+        gradient: 'from-red-600 to-red-800',
+        bgColor: 'bg-red-900/30',
+        borderColor: 'border-red-500/50'
+    }
+};
+
+// State for verification modal
+let verificationModalState = {
+    currentHuntId: null,
+    selectedStatus: null,
+    imageFile: null,
+    imagePreview: null,
+    isUploading: false
 };
 
 // ============================================
@@ -532,7 +609,6 @@ function createHuntCard(hunt, index) {
             ${isReady ? '<div class="ready-badge">DISPONÍVEL</div>' : ''}
             <div class="respawn-card-overlay">
                 <h3 class="respawn-card-name">${hunt.name}</h3>
-                <span class="respawn-card-weight">⚡ ${hunt.priority} pts</span>
             </div>
         </div>
         <div class="respawn-card-body">
@@ -548,11 +624,17 @@ function createHuntCard(hunt, index) {
                 <div class="info-row">
                     <span class="info-label">Última verificação:</span>
                     <span class="info-value time">${lastCheckDisplay}</span>
+                    ${hasImage ? `<button class="btn-view-print" data-hunt-id="${hunt.id}" data-image="${imageSrc}" title="Ver print">📷 Ver print</button>` : ''}
                 </div>
                 <div class="info-row">
                     <span class="info-label">${statusInfo.timeText.includes('Próximo') ? 'Próxima:' : 'Verificado por:'}</span>
                     <span class="info-value ${isReady || isNever ? 'player' : 'time'}">${isReady || isNever ? statusInfo.timeText : lastPlayerDisplay}</span>
                 </div>
+                ${!isReady && !isNever ? `
+                <div class="info-row">
+                    <button class="btn-history" data-hunt-id="${hunt.id}" title="Ver histórico">📜 Histórico</button>
+                </div>
+                ` : ''}
             </div>
             <div class="respawn-card-footer">
                 <button class="btn btn-check" data-hunt-id="${hunt.id}" ${!isReady && !isNever ? 'disabled' : ''}>
@@ -562,48 +644,457 @@ function createHuntCard(hunt, index) {
         </div>
     `;
 
-    // Add click listener
+    // Add click listeners
     const checkBtn = card.querySelector('.btn-check');
     if (checkBtn && !checkBtn.disabled) {
-        checkBtn.addEventListener('click', () => handleHuntCheck(hunt.id));
+        checkBtn.addEventListener('click', () => openVerificationModal(hunt.id));
+    }
+
+    // View print button - opens in new tab
+    const viewPrintBtn = card.querySelector('.btn-view-print');
+    if (viewPrintBtn) {
+        viewPrintBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const imageUrl = e.target.dataset.image;
+            if (imageUrl) {
+                window.open(imageUrl, '_blank', 'noopener,noreferrer');
+            } else {
+                showToast('Print não encontrado.', 'error');
+            }
+        });
+    }
+
+    // History button
+    const historyBtn = card.querySelector('.btn-history');
+    if (historyBtn) {
+        historyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openHistoryModal(hunt.id);
+        });
     }
 
     return card;
 }
 
-async function handleHuntCheck(huntId) {
+// ============================================
+// VERIFICATION MODAL
+// ============================================
+
+function openVerificationModal(huntId) {
     const hunt = state.hunts.find(h => h.id === huntId);
-    
     if (!hunt) {
         showToast('Hunt não encontrada.', 'error');
         return;
     }
 
-    if (!supabaseClient) {
-        showToast('Erro de conexão.', 'error');
+    // Reset modal state
+    verificationModalState = {
+        currentHuntId: huntId,
+        selectedStatus: null,
+        imageFile: null,
+        imagePreview: null,
+        isUploading: false
+    };
+
+    // Create modal HTML if it doesn't exist
+    ensureVerificationModalExists();
+
+    // Show modal
+    const modal = document.getElementById('verification-modal');
+    const overlay = document.getElementById('verification-modal-overlay');
+    if (modal) modal.classList.add('active');
+    if (overlay) overlay.classList.add('active');
+
+    // Update hunt name in modal
+    const huntNameEl = document.querySelector('.verification-modal-hunt-name');
+    if (huntNameEl) huntNameEl.textContent = hunt.name;
+
+    // Reset status selection
+    document.querySelectorAll('.verification-status-option').forEach(el => {
+        el.classList.remove('selected');
+    });
+
+    // Reset image upload area
+    resetImageUploadArea();
+
+    // Update confirm button state
+    updateConfirmButtonState();
+}
+
+function closeVerificationModal() {
+    const modal = document.getElementById('verification-modal');
+    const overlay = document.getElementById('verification-modal-overlay');
+    if (modal) modal.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+
+    // Clear image preview if exists
+    if (verificationModalState.imagePreview) {
+        URL.revokeObjectURL(verificationModalState.imagePreview);
+    }
+}
+
+function ensureVerificationModalExists() {
+    if (document.getElementById('verification-modal')) return;
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'verification-modal-overlay';
+    overlay.className = 'verification-modal-overlay';
+    overlay.addEventListener('click', closeVerificationModal);
+    document.body.appendChild(overlay);
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'verification-modal';
+    modal.className = 'verification-modal';
+
+    modal.innerHTML = `
+        <div class="verification-modal-content">
+            <div class="verification-modal-header">
+                <h3>⚔️ Verificar Respawn</h3>
+                <button class="verification-modal-close" onclick="closeVerificationModal()">✕</button>
+            </div>
+            
+            <div class="verification-modal-body">
+                <p class="verification-modal-hunt-label">Respawn:</p>
+                <p class="verification-modal-hunt-name">--</p>
+                
+                <div class="verification-status-list">
+                    <p class="verification-section-label">Qual foi o resultado da verificação?</p>
+                    
+                    <div class="verification-status-option" data-status="SEM_PT" onclick="selectVerificationStatus('SEM_PT')">
+                        <div class="verification-status-icon blue">🔵</div>
+                        <div class="verification-status-info">
+                            <div class="verification-status-name">Sem PT</div>
+                            <div class="verification-status-desc">O respawn está vazio, não existe PT formada.</div>
+                        </div>
+                        <div class="verification-status-points">+1</div>
+                    </div>
+                    
+                    <div class="verification-status-option" data-status="COM_PT" onclick="selectVerificationStatus('COM_PT')">
+                        <div class="verification-status-icon yellow">🟡</div>
+                        <div class="verification-status-info">
+                            <div class="verification-status-name">Com PT</div>
+                            <div class="verification-status-desc">Existe uma PT formada aguardando completar.</div>
+                        </div>
+                        <div class="verification-status-points">+2</div>
+                    </div>
+                    
+                    <div class="verification-status-option" data-status="ACABOU_PT" onclick="selectVerificationStatus('ACABOU_PT')">
+                        <div class="verification-status-icon purple">🟣</div>
+                        <div class="verification-status-info">
+                            <div class="verification-status-name">Acabou PT</div>
+                            <div class="verification-status-desc">A PT encerrou a hunt e saiu do local.</div>
+                        </div>
+                        <div class="verification-status-points">+2</div>
+                    </div>
+                    
+                    <div class="verification-status-option" data-status="MATAMOS" onclick="selectVerificationStatus('MATAMOS')">
+                        <div class="verification-status-icon green">🟢</div>
+                        <div class="verification-status-info">
+                            <div class="verification-status-name">Matamos</div>
+                            <div class="verification-status-desc">Nossa PT matou a PT inimiga e assumiu o respawn.</div>
+                        </div>
+                        <div class="verification-status-points">+8</div>
+                    </div>
+                    
+                    <div class="verification-status-option" data-status="FRAGUEI" onclick="selectVerificationStatus('FRAGUEI')">
+                        <div class="verification-status-icon red">🔴</div>
+                        <div class="verification-status-info">
+                            <div class="verification-status-name">Fraguei</div>
+                            <div class="verification-status-desc">A PT morreu durante a disputa.</div>
+                        </div>
+                        <div class="verification-status-points">+12</div>
+                    </div>
+                </div>
+
+                <!-- Image Upload Area (shown when status requires image) -->
+                <div id="image-upload-section" class="image-upload-section" style="display: none;">
+                    <p class="verification-section-label">📸 Print obrigatório</p>
+                    <div class="image-upload-area" id="image-upload-area">
+                        <div class="image-upload-placeholder" id="image-upload-placeholder">
+                            <div class="upload-icon">📷</div>
+                            <p class="upload-main-text">Arraste uma imagem aqui</p>
+                            <p class="upload-sub-text">ou Cole usando CTRL+V</p>
+                            <p class="upload-sub-text">ou Clique para selecionar</p>
+                            <p class="upload-formats">PNG, JPG, JPEG, WEBP</p>
+                        </div>
+                        <div class="image-preview-container" id="image-preview-container" style="display: none;">
+                            <img id="image-preview" src="" alt="Preview">
+                            <button class="image-remove-btn" onclick="removeImage()" title="Remover imagem">✕</button>
+                        </div>
+                        <input type="file" id="image-file-input" accept="image/png,image/jpeg,image/jpg,image/webp" style="display: none;">
+                    </div>
+                    <p class="image-required-notice" id="image-required-notice">
+                        ⚠️ Print obrigatório para confirmar esta verificação
+                    </p>
+                </div>
+            </div>
+            
+            <div class="verification-modal-footer">
+                <button class="btn btn-secondary" onclick="closeVerificationModal()">Cancelar</button>
+                <button class="btn btn-confirm-verification" id="confirm-verification-btn" onclick="confirmVerification()" disabled>
+                    Confirmar Verificação
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Setup event listeners for image upload
+    setupImageUploadListeners();
+}
+
+function selectVerificationStatus(statusId) {
+    verificationModalState.selectedStatus = statusId;
+    const statusConfig = VERIFICATION_STATUS[statusId];
+
+    // Update UI selection
+    document.querySelectorAll('.verification-status-option').forEach(el => {
+        el.classList.remove('selected');
+        if (el.dataset.status === statusId) {
+            el.classList.add('selected');
+        }
+    });
+
+    // Show/hide image upload section
+    const imageSection = document.getElementById('image-upload-section');
+    if (statusConfig.requiresImage) {
+        imageSection.style.display = 'block';
+    } else {
+        imageSection.style.display = 'none';
+    }
+
+    // Update confirm button state
+    updateConfirmButtonState();
+}
+
+function updateConfirmButtonState() {
+    const btn = document.getElementById('confirm-verification-btn');
+    if (!btn || !verificationModalState.selectedStatus) {
+        if (btn) btn.disabled = true;
         return;
     }
 
+    const statusConfig = VERIFICATION_STATUS[verificationModalState.selectedStatus];
+    
+    if (statusConfig.requiresImage) {
+        // Image is required - button enabled only if image exists
+        btn.disabled = !verificationModalState.imageFile;
+    } else {
+        // No image required - button always enabled
+        btn.disabled = false;
+    }
+}
+
+// ============================================
+// IMAGE UPLOAD FUNCTIONALITY
+// ============================================
+
+function setupImageUploadListeners() {
+    const uploadArea = document.getElementById('image-upload-area');
+    const fileInput = document.getElementById('image-file-input');
+    
+    if (!uploadArea || !fileInput) return;
+
+    // Click to select
+    uploadArea.addEventListener('click', (e) => {
+        if (e.target.closest('.image-remove-btn')) return;
+        if (!verificationModalState.imageFile) {
+            fileInput.click();
+        }
+    });
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+            handleImageFile(e.target.files[0]);
+        }
+    });
+
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('drag-over');
+    });
+
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('drag-over');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('drag-over');
+        
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            const file = e.dataTransfer.files[0];
+            if (isValidImageType(file)) {
+                handleImageFile(file);
+            } else {
+                showToast('Formato de imagem inválido. Use PNG, JPG, JPEG ou WEBP.', 'error');
+            }
+        }
+    });
+
+    // Paste support (Ctrl+V)
+    document.addEventListener('paste', handlePaste);
+}
+
+function handlePaste(e) {
+    // Only handle paste when modal is open
+    const modal = document.getElementById('verification-modal');
+    if (!modal || !modal.classList.contains('active')) return;
+
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+            e.preventDefault();
+            const file = items[i].getAsFile();
+            if (file && isValidImageType(file)) {
+                handleImageFile(file);
+            } else {
+                showToast('Formato de imagem inválido.', 'error');
+            }
+            break;
+        }
+    }
+}
+
+function isValidImageType(file) {
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    return validTypes.includes(file.type);
+}
+
+function handleImageFile(file) {
+    if (!isValidImageType(file)) {
+        showToast('Formato inválido. Use PNG, JPG, JPEG ou WEBP.', 'error');
+        return;
+    }
+
+    // Max 10MB
+    if (file.size > 10 * 1024 * 1024) {
+        showToast('Imagem muito grande. Máximo 10MB.', 'error');
+        return;
+    }
+
+    verificationModalState.imageFile = file;
+
+    // Show preview
+    const preview = document.getElementById('image-preview');
+    const placeholder = document.getElementById('image-upload-placeholder');
+    const previewContainer = document.getElementById('image-preview-container');
+
+    if (verificationModalState.imagePreview) {
+        URL.revokeObjectURL(verificationModalState.imagePreview);
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    verificationModalState.imagePreview = previewUrl;
+
+    preview.src = previewUrl;
+    placeholder.style.display = 'none';
+    previewContainer.style.display = 'flex';
+
+    updateConfirmButtonState();
+}
+
+function removeImage() {
+    verificationModalState.imageFile = null;
+    
+    if (verificationModalState.imagePreview) {
+        URL.revokeObjectURL(verificationModalState.imagePreview);
+        verificationModalState.imagePreview = null;
+    }
+
+    const placeholder = document.getElementById('image-upload-placeholder');
+    const previewContainer = document.getElementById('image-preview-container');
+    const fileInput = document.getElementById('image-file-input');
+
+    placeholder.style.display = 'flex';
+    previewContainer.style.display = 'none';
+    if (fileInput) fileInput.value = '';
+
+    updateConfirmButtonState();
+}
+
+function resetImageUploadArea() {
+    removeImage();
+}
+
+// ============================================
+// CONFIRM VERIFICATION
+// ============================================
+
+async function confirmVerification() {
+    const { currentHuntId, selectedStatus, imageFile } = verificationModalState;
+
+    console.log('[VERIFY] Starting verification:', { currentHuntId, selectedStatus, hasImage: !!imageFile });
+
+    if (!currentHuntId || !selectedStatus) {
+        showToast('Selecione uma opção.', 'error');
+        return;
+    }
+
+    const statusConfig = VERIFICATION_STATUS[selectedStatus];
+    if (statusConfig.requiresImage && !imageFile) {
+        showToast('Anexe um print para confirmar.', 'error');
+        return;
+    }
+
+    // Set uploading state
+    verificationModalState.isUploading = true;
+    const confirmBtn = document.getElementById('confirm-verification-btn');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Enviando...';
+    }
+
     const now = new Date().toISOString();
-    const points = hunt.priority || 1;
+    const points = statusConfig.points;
+    let imageUrl = null;
 
     try {
-        // 1. Insert check record
-        const { error: checkError } = await supabaseClient
-            .from('hunt_checks')
-            .insert({
-                hunt_id: huntId,
-                player_name: state.currentPlayer.name,
-                checked_at: now,
-                points: points
-            });
+        // 1. Upload image if required
+        if (imageFile) {
+            console.log('[VERIFY] Uploading image...');
+            imageUrl = await uploadVerificationImage(imageFile, currentHuntId, selectedStatus);
+            console.log('[VERIFY] Upload result:', imageUrl);
 
-        if (checkError) {
-            showToast('Erro ao registrar verificação: ' + checkError.message, 'error');
-            return;
+            // If image is required but upload failed, block confirmation
+            if (statusConfig.requiresImage && !imageUrl) {
+                showToast('Erro ao enviar imagem. Não foi possível confirmar a verificação.', 'error');
+                throw new Error('Image upload failed for required status');
+            }
         }
 
-        // 2. Update hunt
+        console.log('[VERIFY] Inserting check record with image_url:', imageUrl);
+
+        // 2. Insert check record with status and image
+        const { data: checkData, error: checkError } = await supabaseClient
+            .from('hunt_checks')
+            .insert({
+                hunt_id: currentHuntId,
+                player_name: state.currentPlayer.name,
+                checked_at: now,
+                points: points,
+                status: selectedStatus,
+                image_url: imageUrl
+            })
+            .select();
+
+        if (checkError) {
+            console.error('[VERIFY] Check insert error:', checkError);
+            showToast('Erro ao registrar verificação: ' + checkError.message, 'error');
+            throw checkError;
+        }
+
+        console.log('[VERIFY] Check inserted successfully:', checkData);
+
+        // 3. Update hunt
         const { error: updateError } = await supabaseClient
             .from('hunts')
             .update({
@@ -611,26 +1102,83 @@ async function handleHuntCheck(huntId) {
                 updated_by: state.currentPlayer.name,
                 updated_at: now
             })
-            .eq('id', huntId);
+            .eq('id', currentHuntId);
 
         if (updateError) {
+            console.error('[VERIFY] Hunt update error:', updateError);
             showToast('Erro ao atualizar hunt: ' + updateError.message, 'error');
-            return;
+            throw updateError;
         }
 
-        // 3. Update local state
-        hunt.last_check = now;
-        hunt.updated_by = state.currentPlayer.name;
-        hunt.updated_at = now;
+        // 4. Update local state
+        const hunt = state.hunts.find(h => h.id === currentHuntId);
+        if (hunt) {
+            hunt.last_check = now;
+            hunt.updated_by = state.currentPlayer.name;
+            hunt.updated_at = now;
+            // Also update image_url if we have one
+            if (imageUrl) {
+                hunt.image_url = imageUrl;
+            }
+        }
 
         sortHuntsByPriority();
         renderHunts();
         await loadRankingFromSupabase();
 
-        showToast(`+${points} pontos! ${hunt.name} verificada!`, 'success');
+        closeVerificationModal();
+        showToast(`+${points} pontos! ${statusConfig.label} - ${hunt?.name || ''}`, 'success');
+
     } catch (err) {
-        console.error('Check error:', err);
+        console.error('[VERIFY] Error:', err);
         showToast('Erro ao processar verificação.', 'error');
+    } finally {
+        verificationModalState.isUploading = false;
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Confirmar Verificação';
+        }
+    }
+}
+
+async function uploadVerificationImage(file, huntId, status) {
+    const hunt = state.hunts.find(h => h.id === huntId);
+    const huntName = hunt ? hunt.name.replace(/[^a-zA-Z0-9]/g, '_') : 'hunt';
+    const timestamp = Date.now();
+    const extension = file.name.split('.').pop();
+    const fileName = `verifications/${huntName}_${status}_${timestamp}.${extension}`;
+
+    try {
+        // First, ensure bucket exists and has public access
+        // Note: In production, the bucket should be created via Supabase dashboard
+        
+        const { data, error } = await supabaseClient.storage
+            .from('verification-images')
+            .upload(fileName, file, {
+                cacheControl: '3600',
+                upsert: false
+            });
+
+        if (error) {
+            console.error('Upload error:', error);
+            // If bucket doesn't exist, return null and still allow verification
+            if (error.message.includes('Bucket not found')) {
+                showToast('Bucket de imagens não configurado. Verificação registrada sem imagem.', 'error');
+                return null;
+            }
+            throw error;
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabaseClient.storage
+            .from('verification-images')
+            .getPublicUrl(fileName);
+
+        return publicUrl;
+    } catch (err) {
+        console.error('Image upload error:', err);
+        showToast('Erro ao enviar imagem, mas verificação foi registrada.', 'error');
+        return null;
     }
 }
 
@@ -966,6 +1514,139 @@ dynamicStyles.textContent = `
     }
 `;
 document.head.appendChild(dynamicStyles);
+
+// ============================================
+// OPEN PRINT IN NEW TAB
+// ============================================
+
+function openPrint(imageUrl) {
+    if (!imageUrl || imageUrl.trim() === '') {
+        showToast('Print não encontrado');
+        return;
+    }
+
+    console.log('[PRINT URL]', imageUrl);
+
+    window.open(imageUrl, '_blank', 'noopener,noreferrer');
+}
+
+// ============================================
+// HISTORY MODAL
+// ============================================
+
+function openHistoryModal(huntId) {
+    const hunt = state.hunts.find(h => h.id === huntId);
+    if (!hunt) return;
+
+    // Create modal if doesn't exist
+    if (!document.getElementById('history-modal')) {
+        const overlay = document.createElement('div');
+        overlay.id = 'history-modal-overlay';
+        overlay.className = 'history-modal-overlay';
+        overlay.addEventListener('click', closeHistoryModal);
+        document.body.appendChild(overlay);
+
+        const modal = document.createElement('div');
+        modal.id = 'history-modal';
+        modal.className = 'history-modal';
+        modal.innerHTML = `
+            <div class="history-modal-content">
+                <div class="history-modal-header">
+                    <h3>📜 Histórico da Hunt</h3>
+                    <button class="history-modal-close" onclick="closeHistoryModal()">✕</button>
+                </div>
+                <div class="history-modal-body">
+                    <p class="history-modal-hunt-name" id="history-hunt-name">--</p>
+                    <div id="history-list" class="history-list">
+                        <!-- History items will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // Update hunt name
+    document.getElementById('history-hunt-name').textContent = hunt.name;
+
+    // Load history from Supabase
+    loadHuntHistory(huntId);
+
+    // Show modal
+    const modal = document.getElementById('history-modal');
+    const overlay = document.getElementById('history-modal-overlay');
+    modal.classList.add('active');
+    overlay.classList.add('active');
+}
+
+async function loadHuntHistory(huntId) {
+    const historyList = document.getElementById('history-list');
+    historyList.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+
+    console.log('[HISTORY] Loading history for hunt:', huntId);
+
+    try {
+        const { data: checks, error } = await supabaseClient
+            .from('hunt_checks')
+            .select('id, hunt_id, player_name, checked_at, points, status, image_url')
+            .eq('hunt_id', huntId)
+            .order('checked_at', { ascending: false })
+            .limit(50);
+
+        console.log('[HISTORY] Raw data:', checks);
+        console.log('[HISTORY] Error:', error);
+
+        if (error || !checks || checks.length === 0) {
+            historyList.innerHTML = '<p class="history-empty">Nenhuma verificação registrada para esta hunt.</p>';
+            return;
+        }
+
+        historyList.innerHTML = '';
+
+        checks.forEach((check, index) => {
+            console.log('[HISTORY] Check item:', check);
+            const statusConfig = VERIFICATION_STATUS[check.status] || VERIFICATION_STATUS.SEM_PT;
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            item.style.animationDelay = `${index * 0.05}s`;
+
+            const hasImage = check.image_url && check.image_url.trim() !== '';
+            console.log('[HISTORY] Has image:', hasImage, 'URL:', check.image_url);
+
+            item.innerHTML = `
+                <div class="history-item-header">
+                    <div class="history-status-badge ${statusConfig.color}">
+                        ${statusConfig.icon} ${statusConfig.label}
+                    </div>
+                    <div class="history-points">+${check.points || statusConfig.points} pts</div>
+                </div>
+                <div class="history-item-info">
+                    <div class="history-player">${check.player_name}</div>
+                    <div class="history-date">${formatDateTime(check.checked_at)}</div>
+                </div>
+                ${hasImage ? `
+                <div class="history-item-actions">
+                    <button class="btn-view-print-small" onclick="window.open('${check.image_url}', '_blank', 'noopener,noreferrer')">
+                        📷 Ver print
+                    </button>
+                </div>
+                ` : ''}
+            `;
+
+            historyList.appendChild(item);
+        });
+    } catch (err) {
+        console.error('[HISTORY] Error loading history:', err);
+        historyList.innerHTML = '<p class="history-empty">Erro ao carregar histórico.</p>';
+    }
+}
+
+function closeHistoryModal() {
+    const modal = document.getElementById('history-modal');
+    const overlay = document.getElementById('history-modal-overlay');
+    if (modal) modal.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+}
 
 // ============================================
 // START APPLICATION
