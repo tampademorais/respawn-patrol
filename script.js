@@ -775,7 +775,7 @@ function ensureVerificationModalExists() {
                         <div class="verification-status-icon yellow">🟡</div>
                         <div class="verification-status-info">
                             <div class="verification-status-name">Com PT</div>
-                            <div class="verification-status-desc">Existe uma PT formada aguardando completar.</div>
+                            <div class="verification-status-desc">Existe uma PT, vamo matar.</div>
                         </div>
                         <div class="verification-status-points">+2</div>
                     </div>
@@ -784,7 +784,7 @@ function ensureVerificationModalExists() {
                         <div class="verification-status-icon purple">🟣</div>
                         <div class="verification-status-info">
                             <div class="verification-status-name">Acabou PT</div>
-                            <div class="verification-status-desc">A PT encerrou a hunt e saiu do local.</div>
+                            <div class="verification-status-desc">Full dominado.</div>
                         </div>
                         <div class="verification-status-points">+2</div>
                     </div>
@@ -793,7 +793,7 @@ function ensureVerificationModalExists() {
                         <div class="verification-status-icon green">🟢</div>
                         <div class="verification-status-info">
                             <div class="verification-status-name">Matamos</div>
-                            <div class="verification-status-desc">Nossa PT matou a PT inimiga e assumiu o respawn.</div>
+                            <div class="verification-status-desc">sou taskero</div>
                         </div>
                         <div class="verification-status-points">+8</div>
                     </div>
@@ -802,7 +802,7 @@ function ensureVerificationModalExists() {
                         <div class="verification-status-icon red">🔴</div>
                         <div class="verification-status-info">
                             <div class="verification-status-name">Fraguei</div>
-                            <div class="verification-status-desc">A PT morreu durante a disputa.</div>
+                            <div class="verification-status-desc">tier5</div>
                         </div>
                         <div class="verification-status-points">+12</div>
                     </div>
