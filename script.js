@@ -73,7 +73,7 @@ const VERIFICATION_STATUS = {
     COM_PT: {
         id: 'COM_PT',
         label: 'Com PT',
-        description: 'Tem  PT, aguardando team pra matar.',
+        description: 'Tem  PT, vamos matar',
         points: 2,
         color: 'yellow',
         icon: '🟡',
@@ -85,7 +85,7 @@ const VERIFICATION_STATUS = {
     ACABOU_PT: {
         id: 'ACABOU_PT',
         label: 'Acabou PT',
-        description: 'war? war?',
+        description: 'full dominado',
         points: 2,
         color: 'purple',
         icon: '🟣',
@@ -97,7 +97,7 @@ const VERIFICATION_STATUS = {
     MATAMOS: {
         id: 'MATAMOS',
         label: 'Matamos',
-        description: 'yo soy taskero',
+        description: 'eu sou taskero',
         points: 8,
         color: 'green',
         icon: '🟢',
@@ -109,7 +109,7 @@ const VERIFICATION_STATUS = {
     FRAGUEI: {
         id: 'FRAGUEI',
         label: 'Fraguei',
-        description: '!kills e vai pra trap',
+        description: 'tier5',
         points: 12,
         color: 'red',
         icon: '🔴',
