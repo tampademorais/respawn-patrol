@@ -73,7 +73,7 @@ const VERIFICATION_STATUS = {
     COM_PT: {
         id: 'COM_PT',
         label: 'Com PT',
-        description: 'Existe uma PT formada aguardando completar.',
+        description: 'Tem  PT, aguardando team pra matar.',
         points: 2,
         color: 'yellow',
         icon: '🟡',
@@ -85,7 +85,7 @@ const VERIFICATION_STATUS = {
     ACABOU_PT: {
         id: 'ACABOU_PT',
         label: 'Acabou PT',
-        description: 'A PT encerrou a hunt e saiu do local.',
+        description: 'war? war?',
         points: 2,
         color: 'purple',
         icon: '🟣',
@@ -97,7 +97,7 @@ const VERIFICATION_STATUS = {
     MATAMOS: {
         id: 'MATAMOS',
         label: 'Matamos',
-        description: 'Nossa PT matou a PT inimiga e assumiu o respawn.',
+        description: 'yo soy taskero',
         points: 8,
         color: 'green',
         icon: '🟢',
@@ -109,7 +109,7 @@ const VERIFICATION_STATUS = {
     FRAGUEI: {
         id: 'FRAGUEI',
         label: 'Fraguei',
-        description: 'A PT morreu durante a disputa.',
+        description: '!kills e vai pra trap',
         points: 12,
         color: 'red',
         icon: '🔴',
